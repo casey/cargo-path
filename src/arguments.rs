@@ -12,8 +12,5 @@ use super::*;
 )]
 pub(crate) enum Arguments {
   #[command(name = "path")]
-  Path {
-    #[arg(help = "Dependency name")]
-    dependency: String,
-  },
+  Path(Path),
 }
