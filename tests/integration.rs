@@ -1,7 +1,6 @@
 use {
   regex::Regex,
   std::{fs, process::Command},
-  tempfile::TempDir,
 };
 
 #[test]
@@ -24,30 +23,23 @@ fn single_dependency() {
   );
 }
 
-fn project(default: bool) -> TempDir {
+#[test]
+fn feature_gated_dependency() {
   let dir = tempfile::tempdir().unwrap();
-
-  let features = if default {
-    "default = [\"baz\"]\nbaz = [\"dep:bar\"]"
-  } else {
-    "baz = [\"dep:bar\"]"
-  };
 
   fs::write(
     dir.path().join("Cargo.toml"),
-    format!(
-      "[package]
+    "[package]
 name = \"foo\"
 version = \"0.0.0\"
 edition = \"2024\"
 
 [dependencies]
-bar = {{ path = \"bar\", optional = true }}
+bar = { path = \"bar\", optional = true }
 
 [features]
-{features}
-"
-    ),
+baz = [\"dep:bar\"]
+",
   )
   .unwrap();
 
@@ -66,24 +58,15 @@ edition = \"2024\"
   .unwrap();
   fs::write(dir.path().join("bar/src/lib.rs"), "").unwrap();
 
-  dir
-}
-
-#[test]
-fn feature_gated_dependency() {
   #[track_caller]
-  fn case(default: bool, args: &[&str], found: bool) {
-    let dir = project(default);
-
+  fn case(dir: &std::path::Path, dependency: &str, expected: Option<&str>) {
     let output = Command::new(env!("CARGO_BIN_EXE_cargo-path"))
-      .arg("path")
-      .args(args)
-      .arg("bar")
-      .current_dir(dir.path())
+      .args(["path", dependency])
+      .current_dir(dir)
       .output()
       .unwrap();
 
-    if found {
+    if let Some(expected) = expected {
       assert!(
         output.status.success(),
         "{}",
@@ -91,22 +74,17 @@ fn feature_gated_dependency() {
       );
       assert_eq!(
         str::from_utf8(&output.stdout).unwrap(),
-        format!(
-          "{}\n",
-          dir.path().canonicalize().unwrap().join("bar").display(),
-        ),
+        format!("{}\n", dir.canonicalize().unwrap().join(expected).display(),),
       );
     } else {
       assert!(!output.status.success());
       assert_eq!(
         str::from_utf8(&output.stderr).unwrap(),
-        "error: dependency `bar` not found\n",
+        format!("error: dependency `{dependency}` not found\n"),
       );
     }
   }
 
-  case(false, &[], true);
-  case(false, &["--features", "baz"], true);
-  case(false, &["--all-features"], true);
-  case(true, &["--no-default-features"], false);
+  case(dir.path(), "bar", Some("bar"));
+  case(dir.path(), "qux", None);
 }

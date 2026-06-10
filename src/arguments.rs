@@ -13,18 +13,6 @@ use super::*;
 pub(crate) enum Arguments {
   #[command(name = "path")]
   Path {
-    #[arg(long, help = "Activate all available features")]
-    all_features: bool,
-    #[arg(
-      short = 'F',
-      long,
-      value_delimiter = ',',
-      value_name = "FEATURES",
-      help = "Comma separated list of features to activate"
-    )]
-    features: Vec<String>,
-    #[arg(long, help = "Do not activate the `default` feature")]
-    no_default_features: bool,
     #[arg(help = "Dependency name")]
     dependency: String,
   },
@@ -32,61 +20,29 @@ pub(crate) enum Arguments {
 
 impl Arguments {
   pub(crate) fn run(self) -> Result<(), Error> {
-    let Self::Path {
-      all_features,
-      features,
-      no_default_features,
-      dependency,
-    } = &self;
+    let Self::Path { dependency } = self;
 
-    let metadata = self.metadata(*all_features)?;
+    let metadata = MetadataCommand::new().exec().context(error::Metadata)?;
 
-    let paths = Self::search(&metadata, dependency)?;
+    let paths = Self::search(&metadata, &dependency)?;
 
-    let paths = if paths.is_empty() && !all_features && features.is_empty() && !no_default_features
-    {
-      let metadata = self.metadata(true)?;
-      Self::search(&metadata, dependency)?
+    let paths = if paths.is_empty() {
+      let metadata = MetadataCommand::new()
+        .features(CargoOpt::AllFeatures)
+        .exec()
+        .context(error::Metadata)?;
+      Self::search(&metadata, &dependency)?
     } else {
       paths
     };
 
-    ensure!(
-      !paths.is_empty(),
-      error::DependencyNotFound {
-        dependency: dependency.as_str(),
-      }
-    );
+    ensure!(!paths.is_empty(), error::DependencyNotFound { dependency });
 
     for path in &paths {
       println!("{path}");
     }
 
     Ok(())
-  }
-
-  fn metadata(&self, all_features: bool) -> Result<Metadata, Error> {
-    let Self::Path {
-      features,
-      no_default_features,
-      ..
-    } = self;
-
-    let mut command = MetadataCommand::new();
-
-    if all_features {
-      command.features(CargoOpt::AllFeatures);
-    }
-
-    if *no_default_features {
-      command.features(CargoOpt::NoDefaultFeatures);
-    }
-
-    if !features.is_empty() {
-      command.features(CargoOpt::SomeFeatures(features.clone()));
-    }
-
-    command.exec().context(error::Metadata)
   }
 
   fn search(metadata: &Metadata, dependency: &str) -> Result<Vec<Utf8PathBuf>, Error> {
