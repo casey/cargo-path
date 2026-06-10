@@ -5,9 +5,8 @@ use {
     camino::{Utf8Path, Utf8PathBuf},
     semver::Version,
   },
-  clap::{Args, Parser, builder::styling},
+  clap::{Parser, builder::styling},
   error::Error,
-  path::Path,
   snafu::{ErrorCompat, OptionExt, ResultExt, Snafu, ensure},
   std::{
     collections::{HashMap, VecDeque},
@@ -18,10 +17,9 @@ use {
 
 mod arguments;
 mod error;
-mod path;
 
 fn main() -> ExitCode {
-  if let Err(error) = run() {
+  if let Err(error) = Arguments::parse().run() {
     if io::stderr().is_terminal() {
       eprintln!("\x1b[1;31merror\x1b[0m: \x1b[1m{error}\x1b[0m");
     } else {
@@ -41,9 +39,4 @@ fn main() -> ExitCode {
   } else {
     ExitCode::SUCCESS
   }
-}
-
-fn run() -> Result<(), Error> {
-  let Arguments::Path(path) = Arguments::parse();
-  path.run()
 }
