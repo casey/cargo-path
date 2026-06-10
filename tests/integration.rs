@@ -3,8 +3,6 @@ use {
   std::{fs, path::Path, process::Command},
 };
 
-const REGEX_VERSION: &str = "1.12.3";
-
 #[track_caller]
 fn case(dir: &Path, dependency: &str, found: bool) {
   let output = Command::new(env!("CARGO_BIN_EXE_cargo-path"))
@@ -13,20 +11,15 @@ fn case(dir: &Path, dependency: &str, found: bool) {
     .output()
     .unwrap();
 
+  let stderr = str::from_utf8(&output.stderr).unwrap();
+
   if found {
-    assert!(
-      output.status.success(),
-      "{}",
-      String::from_utf8_lossy(&output.stderr),
-    );
+    assert!(output.status.success(), "{stderr}");
 
     let stdout = str::from_utf8(&output.stdout).unwrap();
 
-    let regex = Regex::new(&format!(
-      r"^.*/\.cargo/registry/src/index\.crates\.io-[0-9a-f]*/regex-{}\n$",
-      regex::escape(REGEX_VERSION),
-    ))
-    .unwrap();
+    let regex =
+      Regex::new(r"^.*/\.cargo/registry/src/index\.crates\.io-[0-9a-f]*/regex-[0-9.]+\n$").unwrap();
 
     assert!(
       regex.is_match(stdout),
@@ -34,10 +27,7 @@ fn case(dir: &Path, dependency: &str, found: bool) {
     );
   } else {
     assert!(!output.status.success());
-    assert_eq!(
-      str::from_utf8(&output.stderr).unwrap(),
-      format!("error: dependency `{dependency}` not found\n"),
-    );
+    assert_eq!(stderr, format!("error: dependency `{dependency}` not found\n"));
   }
 }
 
@@ -52,19 +42,17 @@ fn feature_gated_dependency() {
 
   fs::write(
     dir.path().join("Cargo.toml"),
-    format!(
-      "[package]
+    "[package]
 name = \"foo\"
 version = \"0.0.0\"
 edition = \"2024\"
 
 [dependencies]
-regex = {{ version = \"={REGEX_VERSION}\", optional = true }}
+regex = { version = \"1.0.0\", optional = true }
 
 [features]
 bar = [\"dep:regex\"]
-"
-    ),
+",
   )
   .unwrap();
 
