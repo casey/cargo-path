@@ -18,8 +18,10 @@ fn case(dir: &Path, dependency: &str, found: bool) {
 
     let stdout = str::from_utf8(&output.stdout).unwrap();
 
-    let regex =
-      Regex::new(r"^.*/\.cargo/registry/src/index\.crates\.io-[0-9a-f]*/regex-[0-9.]+\n$").unwrap();
+    let regex = Regex::new(
+      r"^.*[/\\]\.cargo[/\\]registry[/\\]src[/\\]index\.crates\.io-[0-9a-f]*[/\\]regex-[0-9.]+\n$",
+    )
+    .unwrap();
 
     assert!(
       regex.is_match(stdout),
