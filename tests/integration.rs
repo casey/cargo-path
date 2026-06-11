@@ -27,7 +27,10 @@ fn case(dir: &Path, dependency: &str, found: bool) {
     );
   } else {
     assert!(!output.status.success());
-    assert_eq!(stderr, format!("error: dependency `{dependency}` not found\n"));
+    assert_eq!(
+      stderr,
+      format!("error: dependency `{dependency}` not found\n")
+    );
   }
 }
 
