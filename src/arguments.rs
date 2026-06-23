@@ -48,7 +48,16 @@ impl Arguments {
   fn search(metadata: &Metadata, dependency: &str) -> Result<Vec<Utf8PathBuf>, Error> {
     let resolve = metadata.resolve.as_ref().context(error::MissingResolve)?;
 
-    let root = resolve.root.as_ref().context(error::MissingRoot)?;
+    let roots = if let Some(root) = resolve.root.as_ref() {
+      vec![root]
+    } else {
+      metadata
+        .workspace_members
+        .iter()
+        .collect::<Vec<&PackageId>>()
+    };
+
+    ensure!(!roots.is_empty(), error::MissingRoots);
 
     let nodes = resolve
       .nodes
@@ -56,11 +65,13 @@ impl Arguments {
       .map(|node| (&node.id, node.dependencies.as_slice()))
       .collect::<HashMap<&PackageId, &[PackageId]>>();
 
-    let mut depths = HashMap::<&PackageId, u32>::new();
-    let mut queue = VecDeque::new();
+    let mut depths = HashMap::<&PackageId, u32>::with_capacity(roots.len());
+    let mut queue = VecDeque::with_capacity(roots.len());
 
-    depths.insert(root, 0);
-    queue.push_back(root);
+    for root in roots {
+      depths.insert(root, 0);
+      queue.push_back(root);
+    }
 
     while let Some(id) = queue.pop_front() {
       let depth = depths[id];

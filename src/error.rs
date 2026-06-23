@@ -9,6 +9,6 @@ pub(crate) enum Error {
   Metadata { source: cargo_metadata::Error },
   #[snafu(display("missing resolve in cargo metadata"))]
   MissingResolve,
-  #[snafu(display("missing root package in cargo metadata"))]
-  MissingRoot,
+  #[snafu(display("missing root packages in cargo metadata"))]
+  MissingRoots,
 }
